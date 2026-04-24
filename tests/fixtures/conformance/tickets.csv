@@ -1,0 +1,6 @@
+ticket_id,category,body,status
+T-00001,billing,Charge on my card I do not recognize,open
+T-00002,technical,App crashes on launch after latest update,open
+T-00003,billing,Refund request for duplicate charge,resolved
+T-00004,account,Cannot reset my password via email,open
+T-00005,technical,Feature request: dark mode on web,resolved

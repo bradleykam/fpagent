@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fpagent"
+version = "0.1.0"
+description = "Record-level content fingerprinting for structured data"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+authors = [{ name = "fpagent contributors" }]
+keywords = ["fingerprinting", "deduplication", "record-linkage", "minhash", "tlsh"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+dependencies = [
+    "click>=8.0",
+    "datasketch>=1.6",
+    "numpy>=1.20",
+    "py-tlsh>=4.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+
+[project.scripts]
+fpagent = "fpagent.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/bradleykam/fpagent"
+Repository = "https://github.com/bradleykam/fpagent"
+Issues = "https://github.com/bradleykam/fpagent/issues"
+Changelog = "https://github.com/bradleykam/fpagent/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

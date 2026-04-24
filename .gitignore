@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.eggs/
+
+# Build / distribution
+build/
+dist/
+wheels/
+*.whl
+*.tar.gz
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+
+# Type checkers
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Local manifest outputs (from docs examples, not committed)
+/tmp/*.json
+manifest.json
+*.manifest.json

@@ -1,0 +1,96 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# PyPI Trusted Publishing requires these permissions.
+# See CONTRIBUTING.md § Releasing for setup.
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build sdist and wheel
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tool
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build
+        run: python -m build
+
+      - name: Verify wheel installs and CLI works
+        run: |
+          python -m venv /tmp/verify
+          /tmp/verify/bin/pip install dist/*.whl
+          /tmp/verify/bin/fpagent --version
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Extract release notes
+        id: notes
+        run: |
+          # Pull the section of CHANGELOG.md for this version (from its heading
+          # up to — but not including — the next "## [" heading).
+          python - <<'PY' > release_notes.md
+          import re, sys
+          v = "${{ needs.build.outputs.version }}"
+          body = open("CHANGELOG.md").read()
+          pat = re.compile(rf"^## \[{re.escape(v)}\].*?(?=^## \[|\Z)", re.MULTILINE | re.DOTALL)
+          m = pat.search(body)
+          sys.stdout.write(m.group(0) if m else f"Release {v}\n")
+          PY
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          files: dist/*
