@@ -5,12 +5,14 @@ on:
     tags:
       - "v*.*.*"
 
+# Sigstore OIDC signing requires id-token: write. contents: write for Releases.
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
-    name: Build and publish GitHub Release
+    name: Build, sign, and publish GitHub Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,10 +22,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install build tool
+      - name: Install build tools
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          pip install build cyclonedx-bom sigstore
 
       - name: Build sdist and wheel
         run: python -m build
@@ -33,6 +35,24 @@ jobs:
           python -m venv /tmp/verify
           /tmp/verify/bin/pip install dist/*.whl
           /tmp/verify/bin/fpagent --version
+          /tmp/verify/bin/fpagent schema | python -c "import sys, json; json.loads(sys.stdin.read())"
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          # Resolve the installed environment that contains the wheel so the
+          # SBOM reflects exactly what a user would get.
+          cyclonedx-py environment /tmp/verify \
+            --output-format JSON \
+            --output-file "dist/fpagent-${GITHUB_REF_NAME#v}.cdx.json"
+
+      - name: Sign artifacts with Sigstore
+        uses: sigstore/gh-action-sigstore-python@v3
+        with:
+          inputs: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*.cdx.json
+          upload-signing-artifacts: true
 
       - name: Extract release notes from CHANGELOG.md
         run: |
@@ -49,4 +69,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: release_notes.md
-          files: dist/*
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*.cdx.json
+            dist/*.sigstore.json
