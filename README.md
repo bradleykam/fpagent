@@ -77,24 +77,6 @@ fpagent fingerprint --input papers.csv --output manifest.json --content-fields d
 
 See [SPEC.md](SPEC.md) for the full fingerprinting specification. The spec is licensed under CC-BY 4.0. Third-party implementations are encouraged — any implementation producing output that matches the conformance test vectors is conformant.
 
-## Related projects
-
-fpagent produces fingerprints; it does **not** match records itself. If
-you're looking for matching, these are the closest neighbors:
-
-- **[dedupe](https://github.com/dedupeio/dedupe)** — probabilistic record
-  linkage and deduplication. Learns a model from labeled pairs. fpagent
-  is complementary: dedupe can consume fpagent fingerprints as features.
-- **[Splink](https://moj-analytical-services.github.io/splink/)** —
-  scalable Fellegi-Sunter record linkage on Spark / DuckDB. Again,
-  fpagent is upstream: produce fingerprints, feed them to Splink.
-- **[datasketch](https://github.com/ekzhu/datasketch)** — the MinHash
-  library fpagent uses internally. Use it directly if you only want
-  MinHashes and don't need the rest of the manifest format.
-- **[NeMo Curator](https://github.com/NVIDIA/NeMo-Curator)** — large-
-  scale deduplication for training-data pipelines. Heavier and
-  GPU-oriented; fpagent is the narrow, local, CLI-shaped alternative.
-
 ## Testing
 
 Run `pytest tests/` with the dev deps installed. See
