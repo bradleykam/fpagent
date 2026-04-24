@@ -116,14 +116,27 @@ def public_key_fingerprint(public: ed25519.Ed25519PublicKey) -> str:
 
 # ---------- sign / verify ----------
 
+_MIN_ED25519_SPEC_VERSION = (1, 1, 0)
+
+
+def _version_tuple(s: str) -> tuple[int, int, int]:
+    parts = [int(p) for p in s.split(".")]
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])  # type: ignore[return-value]
+
+
 def sign_manifest_ed25519(manifest: dict[str, Any], private_key: ed25519.Ed25519PrivateKey) -> dict[str, Any]:
-    """Replace manifest['signature'] with an Ed25519 signature object. Returns
-    the same manifest for chaining. Bumps spec_version to 1.1.0 BEFORE signing
-    so the signer and the verifier canonicalize the same bytes."""
-    # Order matters: bump first, sign after. If we signed the old-version
-    # body and then bumped, verify would hash a different canonical form
-    # and fail.
-    manifest["spec_version"] = "1.1.0"
+    """Replace manifest['signature'] with an Ed25519 signature object.
+
+    Ed25519 was introduced in spec 1.1.0. If the manifest declares an older
+    spec_version, bump up to 1.1.0 (the feature floor). Never bump DOWN — a
+    manifest already at 1.2.0 stays at 1.2.0. The key invariant is that the
+    signer's canonical body equals the verifier's canonical body.
+    """
+    current = _version_tuple(manifest.get("spec_version", "1.0.0"))
+    if current < _MIN_ED25519_SPEC_VERSION:
+        manifest["spec_version"] = ".".join(str(x) for x in _MIN_ED25519_SPEC_VERSION)
     sig = private_key.sign(_canonical_body(manifest))
     manifest["signature"] = {
         "algorithm": SIG_ALG_ED25519,

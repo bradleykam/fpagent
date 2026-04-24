@@ -66,7 +66,10 @@ def test_sign_and_verify_happy_path(tmp_path):
 
     m = _build(FIXTURES / "conformance" / "tickets.csv")
     sign_manifest_ed25519(m, private)
-    assert m["spec_version"] == "1.1.0"
+    # Ed25519 is a 1.1.0+ feature. The signer bumps up to 1.1.0 if the
+    # manifest was older, but never bumps DOWN — a 1.2.0 manifest stays 1.2.0.
+    major, minor, *_ = (int(x) for x in m["spec_version"].split("."))
+    assert (major, minor) >= (1, 1)
     assert isinstance(m["signature"], dict)
     assert m["signature"]["algorithm"] == SIG_ALG_ED25519
 
