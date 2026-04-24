@@ -1,8 +1,15 @@
 # fpagent Specification
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **License:** CC-BY 4.0
 **Status:** Draft
+
+## Versioning
+
+| spec_version | Change |
+|---|---|
+| 1.0.0 | Initial release. `signature` is a lowercase-hex SHA-256 string of the canonical manifest body (integrity only, no authenticity). |
+| 1.1.0 | `signature` MAY be a SHA-256 self-sum string (v1.0.0 form, still accepted) OR an object `{"algorithm": "ed25519" \| "sha256-selfsum", "value": "<base64>", "public_key_fingerprint": "<sha256 hex>"}`. Ed25519 signatures over the same canonical body add authenticity. Implementations MUST accept both the string and object forms on read; writers SHOULD emit the object form. |
 
 This specification defines the fingerprinting algorithm, manifest format, and conformance requirements for fpagent-compatible implementations. The reference implementation in this repository (`fpagent-reference`) is one conformant implementation; others in any language are welcome.
 
@@ -179,16 +186,51 @@ One entry per field seen in the input, with its role and a human-readable reason
 
 ## 7. Signing
 
-For v1, signing is a SHA-256 self-sum:
+### 7.1 Canonical body
 
-1. Serialize the manifest as JSON with `sort_keys=True` and compact separators (`,` and `:`) and the `signature` field set to empty string
-2. UTF-8 encode
-3. SHA-256 the result
-4. Hex-encode the digest and place it in `signature`
+Both signing schemes operate on the same canonical byte sequence:
 
-**This is not cryptographically secure against a determined adversary** — anyone who modifies the manifest can recompute the signature. It is intended to detect accidental corruption and serve as a placeholder for proper signing.
+1. Copy the manifest; set its `signature` field to the empty string `""`
+2. Serialize with `sort_keys=True` and compact separators (`,` and `:`)
+3. UTF-8 encode
 
-Planned for v2: Ed25519 signatures with publishable public keys.
+This canonical body is what gets hashed or signed. Because the input is identical for both schemes, a signer can switch between them without any other manifest change.
+
+### 7.2 SHA-256 self-sum (v1.0.0+)
+
+1. Compute SHA-256 of the canonical body
+2. Hex-encode the digest
+3. In v1.0.0, place the digest in `signature` as a lowercase hex string
+4. In v1.1.0, `signature` MAY alternatively be `{"algorithm": "sha256-selfsum", "value": "<hex>"}`
+
+**This is not cryptographically secure against a determined adversary** — anyone who modifies the manifest can recompute the hash. It establishes integrity, not authenticity. Consumers verifying a self-sum-signed manifest SHOULD print a warning that its provenance is unattested.
+
+### 7.3 Ed25519 (v1.1.0+)
+
+1. Sign the canonical body with an Ed25519 private key
+2. Base64-encode the raw 64-byte signature
+3. Compute the public-key fingerprint as `SHA-256(public_key_raw_32_bytes)`, hex
+4. Place in `signature`:
+
+   ```json
+   {
+     "algorithm": "ed25519",
+     "value": "<base64 signature>",
+     "public_key_fingerprint": "<sha256 hex of raw public key>"
+   }
+   ```
+
+The public key itself is NOT embedded in the manifest. Verifiers must receive trusted public keys out-of-band (e.g., published on the signer's website, included in a software release, provisioned by an admin). Trust is established by matching the manifest's `public_key_fingerprint` against one of the verifier's trusted keys.
+
+### 7.4 Trust model
+
+An Ed25519 signature proves that the holder of the corresponding private key produced the manifest. It says nothing about:
+
+- Whether the source data is correct, current, or authorized for use
+- Whether the signer is who they claim to be (that's the verifier's out-of-band trust decision)
+- Whether the manifest was produced honestly (a signer can still sign a manifest of junk data)
+
+Signers SHOULD use distinct keys per service account, rotate them on a published schedule, and revoke compromised keys by announcing the revocation out-of-band and re-signing current manifests with a new key.
 
 ## 8. Versioning
 

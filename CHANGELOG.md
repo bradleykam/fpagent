@@ -9,6 +9,15 @@ implementation.
 
 ## [Unreleased]
 
+### Added (v0.2.0)
+- Ed25519 signing. `fpagent keygen --output KEY` writes a 0600 private key and a `.pub` public key. `fpagent fingerprint --signing-key KEY` produces a v1.1.0 manifest with a signature object `{algorithm, value, public_key_fingerprint}`. `fpagent verify --public-key KEY` verifies the signature over the same canonical body as v1.0.0. Trusted keys are distributed out-of-band; the manifest only carries a fingerprint.
+- Verify exit codes now distinguish signature failure (3) from content mismatch (1) and schema failure (2). CI can triage.
+- `cryptography>=42.0` is now a runtime dep.
+
+### Changed (v0.2.0)
+- SPEC bumped to **v1.1.0**. The `signature` field may be the old v1.0.0 hex string OR a signature object. Writers produced by 0.2.0 emit the object form; the string form is accepted on read and explicitly marked as integrity-only.
+- `verify` short-circuits with exit code 2 if the manifest does not conform to the JSON Schema.
+
 ### Added
 - JSON Schema at `fpagent/schemas/manifest.schema.json` is now the authoritative machine-readable form of the manifest format. `verify` runs schema validation before any other check and short-circuits on malformed input.
 - `fpagent schema` CLI prints the schema to stdout for programmatic consumers.

@@ -4,12 +4,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from cryptography.hazmat.primitives.asymmetric import ed25519
+
 from .canonicalize import canonicalize_record, canonicalize_to_bytes
 from .fingerprint import fingerprint_record
 from .id_detection import FieldDecision
-from .manifest import read_manifest, verify_signature
+from .manifest import read_manifest
 from .parser import read_records
 from .schema import ManifestSchemaError, validate_manifest
+from .signing import SignatureCheck, verify_manifest_signature
 
 
 @dataclass
@@ -22,7 +25,7 @@ class RecordMismatch:
 class VerifyResult:
     manifest_path: Path
     input_path: Path
-    signature_valid: bool
+    signature_check: SignatureCheck
     record_count_match: bool
     expected_count: int
     actual_count: int
@@ -30,16 +33,29 @@ class VerifyResult:
     schema_error: Optional[str] = None
 
     @property
+    def signature_valid(self) -> bool:
+        # Preserved for callers/tests that predate the SignatureCheck object.
+        return self.signature_check.valid
+
+    @property
+    def content_ok(self) -> bool:
+        return self.record_count_match and not self.mismatches
+
+    @property
     def passed(self) -> bool:
         return (
             self.schema_error is None
-            and self.signature_valid
-            and self.record_count_match
-            and not self.mismatches
+            and self.signature_check.valid
+            and self.content_ok
         )
 
 
-def verify(manifest_path: Path, input_path: Path, format: Optional[str] = None) -> VerifyResult:
+def verify(
+    manifest_path: Path,
+    input_path: Path,
+    format: Optional[str] = None,
+    trusted_public_keys: Optional[List[ed25519.Ed25519PublicKey]] = None,
+) -> VerifyResult:
     manifest = read_manifest(manifest_path)
 
     # Schema check first — a malformed manifest is fatal; short-circuit.
@@ -49,7 +65,7 @@ def verify(manifest_path: Path, input_path: Path, format: Optional[str] = None) 
         return VerifyResult(
             manifest_path=manifest_path,
             input_path=input_path,
-            signature_valid=False,
+            signature_check=SignatureCheck(algorithm="unknown", valid=False, reason="schema invalid"),
             record_count_match=False,
             expected_count=manifest.get("record_count", 0),
             actual_count=0,
@@ -57,7 +73,7 @@ def verify(manifest_path: Path, input_path: Path, format: Optional[str] = None) 
             schema_error=str(exc),
         )
 
-    signature_ok = verify_signature(manifest)
+    signature_check = verify_manifest_signature(manifest, trusted_public_keys)
 
     # Reconstruct field decisions from manifest to apply the same ID stripping.
     decisions = [
@@ -97,7 +113,7 @@ def verify(manifest_path: Path, input_path: Path, format: Optional[str] = None) 
     return VerifyResult(
         manifest_path=manifest_path,
         input_path=input_path,
-        signature_valid=signature_ok,
+        signature_check=signature_check,
         record_count_match=count_ok,
         expected_count=expected_count,
         actual_count=len(records),

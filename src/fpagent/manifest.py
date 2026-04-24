@@ -81,10 +81,20 @@ def sign_manifest(manifest: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def verify_signature(manifest: Dict[str, Any]) -> bool:
-    """Check that the stored signature matches the manifest body."""
-    stored = manifest.get("signature", "")
+    """Quick check that the stored signature matches the manifest body.
+
+    Handles both v1.0.0 (string SHA-256 self-sum) and v1.1.0 (signature object
+    with algorithm='sha256-selfsum'). For Ed25519 signatures, this function
+    returns False because it has no access to trusted public keys; callers
+    that care about authenticity should use `signing.verify_manifest_signature`.
+    """
+    stored = manifest.get("signature")
     expected = hashlib.sha256(_canonical_json_for_signing(manifest)).hexdigest()
-    return stored == expected
+    if isinstance(stored, str):
+        return stored == expected
+    if isinstance(stored, dict) and stored.get("algorithm") == "sha256-selfsum":
+        return stored.get("value") == expected
+    return False
 
 
 def write_manifest(manifest: Dict[str, Any], path: Path) -> None:

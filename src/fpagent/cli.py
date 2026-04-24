@@ -22,6 +22,14 @@ from .manifest import (
 )
 from .parser import SUPPORTED_FORMATS, read_records
 from .schema import ManifestSchemaError, load_schema, validate_manifest
+from .signing import (
+    SIG_ALG_ED25519,
+    SIG_ALG_SELFSUM,
+    load_private_key,
+    load_trusted_public_keys,
+    sign_manifest_ed25519,
+    write_keypair,
+)
 from .verify import verify as run_verify
 from .version import AGENT_VERSION, SPEC_VERSION
 
@@ -50,7 +58,11 @@ def main():
 @click.option("--content-fields", default=None, help="Comma-separated field names to force as content.")
 @click.option("--format", "fmt", type=click.Choice(SUPPORTED_FORMATS + ("json",)), default=None,
               help="Input format. Auto-detected if not provided.")
-def fingerprint(input_path: Path, output_path: Path, id_fields, content_fields, fmt):
+@click.option("--signing-key", type=click.Path(exists=True, path_type=Path), default=None,
+              help="Path to an Ed25519 PEM private key. When present, the manifest "
+                   "is signed with Ed25519 (spec 1.1.0). Otherwise a v1.0.0 SHA-256 "
+                   "self-sum is written (integrity only).")
+def fingerprint(input_path: Path, output_path: Path, id_fields, content_fields, fmt, signing_key):
     """Produce a signed manifest from a dataset."""
     id_override = _parse_csv_list(id_fields)
     content_override = _parse_csv_list(content_fields)
@@ -73,8 +85,13 @@ def fingerprint(input_path: Path, output_path: Path, id_fields, content_fields, 
     click.echo(f"✓ Fingerprinted {len(bundles):,} records")
 
     manifest = build_manifest(decisions, bundles)
-    sign_manifest(manifest)
-    click.echo("✓ Manifest signed")
+    if signing_key:
+        private = load_private_key(signing_key)
+        sign_manifest_ed25519(manifest, private)
+        click.echo("✓ Manifest signed (Ed25519)")
+    else:
+        sign_manifest(manifest)
+        click.echo("✓ Manifest signed (SHA-256 self-sum — integrity only)")
 
     write_manifest(manifest, output_path)
     click.echo(f"→ {output_path}")
@@ -84,16 +101,40 @@ def fingerprint(input_path: Path, output_path: Path, id_fields, content_fields, 
 @click.option("--manifest", "manifest_path", required=True, type=click.Path(exists=True, path_type=Path))
 @click.option("--input", "input_path", required=True, type=click.Path(exists=True, path_type=Path))
 @click.option("--format", "fmt", type=click.Choice(SUPPORTED_FORMATS + ("json",)), default=None)
-def verify(manifest_path: Path, input_path: Path, fmt):
-    """Re-fingerprint input and compare against a manifest."""
-    result = run_verify(manifest_path, input_path, format=fmt)
+@click.option("--public-key", "public_key_path", type=click.Path(exists=True, path_type=Path), default=None,
+              help="PEM file or directory of *.pub files. Required to verify Ed25519 signatures.")
+def verify(manifest_path: Path, input_path: Path, fmt, public_key_path):
+    """Re-fingerprint input and compare against a manifest.
+
+    Exit codes:
+      0 — everything matches and the signature verifies
+      1 — content mismatch (count or per-record fingerprint drift)
+      2 — schema-invalid manifest
+      3 — signature failure (distinct from content failure so CI pipelines
+          can triage: a content mismatch usually means the data changed;
+          a signature failure means the manifest was tampered with or signed
+          by a key you don't trust).
+    """
+    trusted = load_trusted_public_keys(public_key_path) if public_key_path else None
+    result = run_verify(manifest_path, input_path, format=fmt, trusted_public_keys=trusted)
 
     if result.schema_error:
         click.echo(f"✗ Manifest does not conform to the schema: {result.schema_error}", err=True)
         sys.exit(2)
 
-    if not result.signature_valid:
-        click.echo("✗ Manifest signature is INVALID", err=True)
+    sig = result.signature_check
+    if sig.algorithm == SIG_ALG_SELFSUM:
+        if sig.valid:
+            click.echo("⚠ SHA-256 self-sum verified — integrity only, NOT cryptographic authenticity")
+        else:
+            click.echo(f"✗ Manifest signature is INVALID ({sig.reason})", err=True)
+    elif sig.algorithm == SIG_ALG_ED25519:
+        if sig.valid:
+            click.echo(f"✓ Ed25519 signature verifies (public key fp {sig.public_key_fingerprint[:16]}…)")
+        else:
+            click.echo(f"✗ Ed25519 signature FAILED: {sig.reason}", err=True)
+    else:
+        click.echo(f"✗ Unknown signature: {sig.reason}", err=True)
 
     if not result.record_count_match:
         click.echo(
@@ -109,11 +150,26 @@ def verify(manifest_path: Path, input_path: Path, fmt):
         if len(result.mismatches) > 10:
             click.echo(f"  ... and {len(result.mismatches) - 10} more", err=True)
 
-    if result.passed:
+    content_ok = result.content_ok
+    if content_ok and sig.valid:
         click.echo(f"✓ All {result.actual_count:,} records match the manifest")
         sys.exit(0)
-    else:
-        sys.exit(1)
+    if not sig.valid and content_ok:
+        sys.exit(3)  # signature-only failure
+    sys.exit(1)
+
+
+@main.command()
+@click.option("--output", "output_path", required=True, type=click.Path(path_type=Path),
+              help="Private key path. Public key written to <output>.pub.")
+def keygen(output_path: Path):
+    """Generate an Ed25519 signing keypair. Private key perms set to 0600."""
+    if output_path.exists():
+        raise click.ClickException(f"refusing to overwrite existing {output_path}")
+    pub = write_keypair(output_path)
+    click.echo(f"✓ Private key: {output_path} (0600)")
+    click.echo(f"✓ Public key:  {pub}")
+    click.echo("  Distribute the .pub file out-of-band to anyone who verifies your manifests.")
 
 
 @main.command()
