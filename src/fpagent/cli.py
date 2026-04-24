@@ -20,7 +20,7 @@ from .manifest import (
     verify_signature,
     write_manifest,
 )
-from .parser import SUPPORTED_FORMATS, read_records
+from .parser import SUPPORTED_FORMATS, iter_records, read_records
 from .schema import ManifestSchemaError, load_schema, validate_manifest
 from .signing import (
     SIG_ALG_ED25519,
@@ -62,12 +62,20 @@ def main():
               help="Path to an Ed25519 PEM private key. When present, the manifest "
                    "is signed with Ed25519 (spec 1.1.0). Otherwise a v1.0.0 SHA-256 "
                    "self-sum is written (integrity only).")
-def fingerprint(input_path: Path, output_path: Path, id_fields, content_fields, fmt, signing_key):
+@click.option("--max-records", type=int, default=None,
+              help="Refuse to fingerprint more than N records. Safety cap for unbounded inputs.")
+def fingerprint(input_path: Path, output_path: Path, id_fields, content_fields, fmt, signing_key, max_records):
     """Produce a signed manifest from a dataset."""
     id_override = _parse_csv_list(id_fields)
     content_override = _parse_csv_list(content_fields)
 
+    # Pass 1: full read for ID detection (heuristics need full-dataset
+    # cardinality; see docs/operations.md for why streaming ends here).
     records = read_records(input_path, format=fmt)
+    if max_records is not None and len(records) > max_records:
+        raise click.ClickException(
+            f"refusing to fingerprint {len(records):,} records (> --max-records {max_records:,})"
+        )
     click.echo(f"✓ Parsed {len(records):,} records from {input_path}")
 
     decisions = detect_field_roles(records, id_override, content_override)
@@ -77,8 +85,11 @@ def fingerprint(input_path: Path, output_path: Path, id_fields, content_fields, 
     if ids:
         click.echo(f"  ID fields: {', '.join(ids)}")
 
+    # Pass 2: stream fingerprints. Drop the records reference so the garbage
+    # collector can reclaim the raw input while we iterate a fresh read.
+    del records
     bundles = []
-    for rec in records:
+    for rec in iter_records(input_path, format=fmt):
         canonical_text = canonicalize_record(rec, contents)
         canonical_bytes = canonicalize_to_bytes(rec, contents)
         bundles.append(fingerprint_record(canonical_bytes, canonical_text))

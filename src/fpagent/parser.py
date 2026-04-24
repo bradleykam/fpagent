@@ -77,16 +77,27 @@ def _read_json_dir(path: Path) -> Iterator[Dict[str, Any]]:
         yield obj
 
 
-def read_records(path: Path, format: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Read all records from path into a list. Materializes in memory; fine
-    for the expected sizes (up to low millions of records per listing)."""
+def iter_records(path: Path, format: Optional[str] = None) -> Iterator[Dict[str, Any]]:
+    """Stream records from path one at a time. Use this when the caller does
+    not need the full dataset materialized in memory.
+
+    Caveat: ID detection (fpagent.id_detection.detect_field_roles) requires
+    the full dataset because its heuristics depend on cardinality and value-
+    shape ratios computed across every row. See docs/operations.md.
+    """
     fmt = format or detect_format(path)
     if fmt == "csv":
-        return list(_read_csv(path))
+        return _read_csv(path)
     if fmt == "jsonl":
-        return list(_read_jsonl(path))
+        return _read_jsonl(path)
     if fmt == "json":
-        return list(_read_json_file(path))
+        return _read_json_file(path)
     if fmt == "json-dir":
-        return list(_read_json_dir(path))
+        return _read_json_dir(path)
     raise ValueError(f"Unsupported format: {fmt}")
+
+
+def read_records(path: Path, format: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Read all records from path into a list. Wraps iter_records for callers
+    that need random access (e.g., ID detection)."""
+    return list(iter_records(path, format=format))

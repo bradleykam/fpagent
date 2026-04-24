@@ -10,6 +10,10 @@ implementation.
 ## [Unreleased]
 
 ### Added (v0.2.0)
+- Streaming fingerprinting. CLI does two passes: pass 1 reads all records for ID detection (per-spec requirement — heuristics depend on full-dataset cardinality), pass 2 streams through fingerprinting via the new `fpagent.parser.iter_records()` generator, allowing pass-1 records to be GC'd before pass 2 accumulates bundles. Produces byte-identical output to the pre-refactor single-pass flow.
+- `--max-records N` safety cap on `fingerprint`. Exits non-zero without writing a manifest if the input has more records.
+- Benchmark script at `tests/benchmarks/bench_fingerprint.py` measuring wall time and peak RSS at 10k/100k/1M synthetic records. Not part of the CI gate.
+- `docs/operations.md`: memory envelope, throughput, sharding guidance, and an honest note that full pass-1 streaming requires a spec change (sampling-based ID detection) and is deferred.
 - Ed25519 signing. `fpagent keygen --output KEY` writes a 0600 private key and a `.pub` public key. `fpagent fingerprint --signing-key KEY` produces a v1.1.0 manifest with a signature object `{algorithm, value, public_key_fingerprint}`. `fpagent verify --public-key KEY` verifies the signature over the same canonical body as v1.0.0. Trusted keys are distributed out-of-band; the manifest only carries a fingerprint.
 - Verify exit codes now distinguish signature failure (3) from content mismatch (1) and schema failure (2). CI can triage.
 - `cryptography>=42.0` is now a runtime dep.
