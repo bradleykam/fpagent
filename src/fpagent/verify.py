@@ -9,6 +9,7 @@ from .fingerprint import fingerprint_record
 from .id_detection import FieldDecision
 from .manifest import read_manifest, verify_signature
 from .parser import read_records
+from .schema import ManifestSchemaError, validate_manifest
 
 
 @dataclass
@@ -26,11 +27,13 @@ class VerifyResult:
     expected_count: int
     actual_count: int
     mismatches: List[RecordMismatch]
+    schema_error: Optional[str] = None
 
     @property
     def passed(self) -> bool:
         return (
-            self.signature_valid
+            self.schema_error is None
+            and self.signature_valid
             and self.record_count_match
             and not self.mismatches
         )
@@ -38,6 +41,22 @@ class VerifyResult:
 
 def verify(manifest_path: Path, input_path: Path, format: Optional[str] = None) -> VerifyResult:
     manifest = read_manifest(manifest_path)
+
+    # Schema check first — a malformed manifest is fatal; short-circuit.
+    try:
+        validate_manifest(manifest)
+    except ManifestSchemaError as exc:
+        return VerifyResult(
+            manifest_path=manifest_path,
+            input_path=input_path,
+            signature_valid=False,
+            record_count_match=False,
+            expected_count=manifest.get("record_count", 0),
+            actual_count=0,
+            mismatches=[],
+            schema_error=str(exc),
+        )
+
     signature_ok = verify_signature(manifest)
 
     # Reconstruct field decisions from manifest to apply the same ID stripping.

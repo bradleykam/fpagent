@@ -24,7 +24,9 @@ classifiers = [
 
 dependencies = [
     "click>=8.0",
+    "cryptography>=42.0",
     "datasketch>=1.6",
+    "jsonschema>=4.18",
     "numpy>=1.20",
     "py-tlsh>=4.5",
 ]
@@ -43,6 +45,9 @@ Changelog = "https://github.com/bradleykam/fpagent/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"fpagent.schemas" = ["*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

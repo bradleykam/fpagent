@@ -21,6 +21,7 @@ from .manifest import (
     write_manifest,
 )
 from .parser import SUPPORTED_FORMATS, read_records
+from .schema import ManifestSchemaError, load_schema, validate_manifest
 from .verify import verify as run_verify
 from .version import AGENT_VERSION, SPEC_VERSION
 
@@ -87,6 +88,10 @@ def verify(manifest_path: Path, input_path: Path, fmt):
     """Re-fingerprint input and compare against a manifest."""
     result = run_verify(manifest_path, input_path, format=fmt)
 
+    if result.schema_error:
+        click.echo(f"✗ Manifest does not conform to the schema: {result.schema_error}", err=True)
+        sys.exit(2)
+
     if not result.signature_valid:
         click.echo("✗ Manifest signature is INVALID", err=True)
 
@@ -109,6 +114,13 @@ def verify(manifest_path: Path, input_path: Path, fmt):
         sys.exit(0)
     else:
         sys.exit(1)
+
+
+@main.command()
+def schema():
+    """Print the authoritative JSON Schema for the manifest format."""
+    import json as _json
+    click.echo(_json.dumps(load_schema(), indent=2))
 
 
 @main.command()

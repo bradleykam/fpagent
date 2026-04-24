@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bradleykam/fpagent/blob/main/src/fpagent/schemas/manifest.schema.json",
+  "title": "fpagent manifest",
+  "$comment": "Authoritative machine-readable form of the manifest described in prose in SPEC.md. If this file and SPEC.md disagree, SPEC.md wins and this file is the bug. Covers spec_version >= 1.0.0, including the 1.1.0 signature-object extension.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "agent_version",
+    "agent_implementation",
+    "dataset_id",
+    "created_at",
+    "record_count",
+    "field_decisions",
+    "fingerprint_params",
+    "records",
+    "signature"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "agent_version": {"type": "string"},
+    "agent_implementation": {"type": "string"},
+    "dataset_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "record_count": {"type": "integer", "minimum": 0},
+    "field_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "role"],
+        "properties": {
+          "field": {"type": "string"},
+          "role": {"enum": ["id", "content"]},
+          "reason": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "fingerprint_params": {
+      "type": "object",
+      "required": [
+        "minhash_permutations",
+        "minhash_seed",
+        "shingle_size",
+        "canonicalization_version"
+      ],
+      "properties": {
+        "minhash_permutations": {"type": "integer", "const": 128},
+        "minhash_seed": {"type": "integer", "const": 42},
+        "shingle_size": {"type": "integer", "const": 5},
+        "canonicalization_version": {"type": "string"},
+        "tlsh_version": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "sha256", "minhash"],
+        "properties": {
+          "index": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "minhash": {"type": "string", "description": "base64 of 128 x uint64 LE (1024 bytes, 1368 base64 chars with padding)", "minLength": 1368, "maxLength": 1368},
+          "tlsh": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "signature": {
+      "oneOf": [
+        {
+          "description": "v1.0.0 SHA-256 self-sum (integrity only, not authentic).",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "description": "v1.1.0+ signature object. Algorithm selects the signing scheme; value is base64; public_key_fingerprint is sha256 of public-key bytes, hex.",
+          "type": "object",
+          "required": ["algorithm", "value"],
+          "properties": {
+            "algorithm": {"enum": ["sha256-selfsum", "ed25519"]},
+            "value": {"type": "string", "minLength": 1},
+            "public_key_fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "sha256 of raw Ed25519 public key bytes. Required when algorithm is ed25519."
+            }
+          },
+          "additionalProperties": false,
+          "if": {"properties": {"algorithm": {"const": "ed25519"}}},
+          "then": {"required": ["algorithm", "value", "public_key_fingerprint"]}
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

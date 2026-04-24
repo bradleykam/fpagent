@@ -7,6 +7,13 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Spec-level
 changes bump per `SPEC.md`'s own version; the package version tracks the
 implementation.
 
+## [Unreleased]
+
+### Added
+- JSON Schema at `fpagent/schemas/manifest.schema.json` is now the authoritative machine-readable form of the manifest format. `verify` runs schema validation before any other check and short-circuits on malformed input.
+- `fpagent schema` CLI prints the schema to stdout for programmatic consumers.
+- `jsonschema>=4.18` is now a runtime dependency.
+
 ## [0.1.0] - 2026-04-24
 
 ### Added
