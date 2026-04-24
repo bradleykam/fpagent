@@ -1,6 +1,6 @@
 """Single source of truth for agent and spec versions."""
 
-AGENT_VERSION = "0.2.0"
-SPEC_VERSION = "1.1.0"
+AGENT_VERSION = "0.3.0"
+SPEC_VERSION = "1.2.0"
 AGENT_IMPLEMENTATION = "fpagent-reference"
 CANONICALIZATION_VERSION = "1.0.0"

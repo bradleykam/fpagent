@@ -1,6 +1,6 @@
 # fpagent Specification
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **License:** CC-BY 4.0
 **Status:** Draft
 
@@ -10,6 +10,7 @@
 |---|---|
 | 1.0.0 | Initial release. `signature` is a lowercase-hex SHA-256 string of the canonical manifest body (integrity only, no authenticity). |
 | 1.1.0 | `signature` MAY be a SHA-256 self-sum string (v1.0.0 form, still accepted) OR an object `{"algorithm": "ed25519" \| "sha256-selfsum", "value": "<base64>", "public_key_fingerprint": "<sha256 hex>"}`. Ed25519 signatures over the same canonical body add authenticity. Implementations MUST accept both the string and object forms on read; writers SHOULD emit the object form. |
+| 1.2.0 | MinHash algorithm vendored. Spec §5.2 rewritten to name `fpagent._minhash` as the reference implementation with explicit permutation-coefficient derivation (SHA-256 of labeled counters, no PRNG). `fingerprint_params.minhash_seed` (integer 42) removed; `fingerprint_params.minhash_algorithm` (string `"fpagent-minhash-v1"`) added. Manifests produced by v1.1.0 and earlier are NOT byte-compatible at the MinHash level. SHA-256 and TLSH fingerprints are unchanged. |
 
 This specification defines the fingerprinting algorithm, manifest format, and conformance requirements for fpagent-compatible implementations. The reference implementation in this repository (`fpagent-reference`) is one conformant implementation; others in any language are welcome.
 
@@ -119,14 +120,22 @@ Standard SHA-256 of the canonical bytes. Lowercase hex-encoded.
 
 ### 5.2 MinHash
 
-- **Reference implementation:** `datasketch.MinHash` at version **1.6+**. Any other implementation **MUST** produce output bit-compatible with datasketch 1.6+ at the parameters below.
+- **Reference implementation:** `fpagent._minhash.compute_minhash_signature` in this repository. That file is the authoritative definition of fpagent MinHash at these parameters. Any third-party implementation producing different output at the same parameters is non-conformant.
+- **Algorithm tag:** `fpagent-minhash-v1` (recorded in every manifest as `fingerprint_params.minhash_algorithm`).
 - **Permutations:** 128
-- **Seed:** 42
 - **Shingle size:** 5 whitespace-separated tokens
+- **Per-shingle hash:** SHA-1 of the UTF-8-encoded shingle, first 4 bytes as little-endian uint32.
+- **Permutation coefficients** `a[i]`, `b[i]` for `i` in `0..127` are derived deterministically from SHA-256 of fixed labels — no PRNG. Defined as:
+  - `a[i] = 1 + (SHA256(b"fpagent-minhash-v1:a:" || u32_be(i)) mod (P-1))`
+  - `b[i] = SHA256(b"fpagent-minhash-v1:b:" || u32_be(i)) mod P`
+  - where `P = 2^61 - 1`, SHA-256 digests are interpreted as big-endian unsigned integers, and `u32_be(i)` is four bytes big-endian.
+- **Permutation update:** for each shingle producing `h`, each slot `i` becomes `min(slot_i, ((a[i] * h + b[i]) mod P) & 0xFFFFFFFF)`.
+- **Empty input:** no shingles are updated; all 128 slots remain at the sentinel `0xFFFFFFFF` (the max 32-bit value).
+- **Under-size input:** if the record has fewer than 5 tokens after tokenization, the single shingle is the whole token list joined by a single space.
 
-If the record has fewer than 5 tokens after tokenization, the single shingle is the whole token list joined by spaces. If zero tokens, no shingles are updated and all 128 hashvalues remain at their initial maximum (`2^32 - 1`).
+Serialized as base64 of the 128-element `uint64` array in little-endian byte order (1024 raw bytes → 1368 base64 characters including padding).
 
-Serialized as base64 of the 128-element `uint64` array in little-endian byte order.
+Earlier versions of this spec delegated to `datasketch.MinHash`. That wording is retired; any incompatibility between the vendored implementation and datasketch at the bit level is a feature of fpagent, not a defect.
 
 ### 5.3 TLSH
 

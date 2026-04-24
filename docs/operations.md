@@ -40,17 +40,26 @@ supported path is sharding, not streaming.
 
 ## Throughput
 
-Benchmarks on an M1 MacBook Pro with the reference implementation (no GPU,
-single core):
+Benchmarks on an Intel MacBook with the 0.3.0 vendored-MinHash path (no
+GPU, single core, Python 3.12):
 
-| records | input format | wall (s) | records/sec |
-|---|---|---|---|
-| 10k | JSONL, 200 B/rec | ~2 | ~5,000 |
-| 100k | JSONL, 200 B/rec | ~20 | ~5,000 |
-| 1M | JSONL, 200 B/rec | ~200 | ~5,000 |
+| records | wall (s) | records/sec |
+|---|---|---|
+| 1k | 2.1 | ~475 |
+| 10k | 19.3 | ~520 |
+| 100k | 191.9 | ~520 |
 
-These are fingerprinting-bound (SHA-256 + MinHash + TLSH per record). Parser
-overhead is noise at the expected input sizes.
+These are fingerprinting-bound and dominated by the pure-Python MinHash
+inner loop (128 modular-multiply-add operations per shingle). The 0.2.x
+series delegated MinHash to `datasketch` + `numpy` and was ~6–10× faster
+at this stage. The 0.3.0 spec change intentionally cut those deps; the
+throughput hit is the honest trade. If you need more speed, shard the
+input and fan out; fpagent does not parallelize a single-file run.
+
+For a typical fpagent workload (documents, tickets, records in the
+thousands per batch), the pure-Python path is fast enough that it doesn't
+dominate the ingest pipeline. Benchmarks at the million-record level put
+wall time around 30 minutes; plan shards accordingly.
 
 Re-run the benchmark on your hardware:
 

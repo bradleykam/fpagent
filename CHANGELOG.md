@@ -7,7 +7,7 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Spec-level
 changes bump per `SPEC.md`'s own version; the package version tracks the
 implementation.
 
-## [Unreleased]
+## [0.3.0] - 2026-04-24
 
 ### Changed
 - **MinHash vendored in `fpagent/_minhash.py` — spec-breaking change.** The
@@ -26,15 +26,14 @@ implementation.
   `cryptography`, `jsonschema`, `py-tlsh`. Wheel install pulls ~25 MB instead
   of ~200 MB (mostly the numpy drop).
 
+- CLI rewritten with `argparse` from the standard library. Every subcommand, flag, help text, and exit code is preserved. The `click` runtime dependency is removed.
+- `--help` now uses argparse's formatting; `--version` still prints `fpagent, version X.Y.Z`.
+
 ### Benchmark (honest numbers)
 - Pure-Python MinHash on a 100k-record JSONL: ~192 seconds (~520 rec/s).
   That's roughly 6–10× slower than the prior datasketch+numpy path. Within
   the range the dependency-reduction spec accepted; documented in
   `docs/operations.md`.
-
-### Changed (CLI)
-- CLI rewritten with `argparse` from the standard library. Every subcommand, flag, help text, and exit code is preserved. The `click` runtime dependency is removed.
-- `--help` now uses argparse's formatting; `--version` still prints `fpagent, version X.Y.Z`.
 
 ## [0.2.0] - 2026-04-24
 
