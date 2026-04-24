@@ -76,10 +76,12 @@ push:
 2. Bump `version` in `pyproject.toml` and `src/fpagent/version.py`.
 3. Commit, tag `v0.X.Y`, push the tag.
 4. The release workflow builds sdist and wheel, verifies the wheel installs
-   and `fpagent --version` works, and publishes to PyPI using PyPI Trusted
-   Publishing (configured once in the PyPI project settings — no long-lived
-   token in repo secrets). It also opens a GitHub Release with the changelog
-   entry as the body.
+   and `fpagent --version` works, and opens a GitHub Release with the
+   changelog entry as the body and the built artifacts attached.
+
+Users install with `pip install git+https://github.com/bradleykam/fpagent`
+or by downloading a wheel from the Releases page. PyPI publishing is not
+configured; add it later if there's demand.
 
 ## House rules
 

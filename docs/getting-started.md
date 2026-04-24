@@ -9,7 +9,7 @@ below is real — paste-compare it against what you see.
 Requires Python 3.10+.
 
 ```
-pip install fpagent
+pip install git+https://github.com/bradleykam/fpagent
 ```
 
 For development, clone the repo and install in editable mode:

@@ -1,8 +1,7 @@
 # fpagent
 
 [![CI](https://github.com/bradleykam/fpagent/actions/workflows/test.yml/badge.svg)](https://github.com/bradleykam/fpagent/actions/workflows/test.yml)
-[![PyPI](https://img.shields.io/pypi/v/fpagent.svg)](https://pypi.org/project/fpagent/)
-[![Python versions](https://img.shields.io/pypi/pyversions/fpagent.svg)](https://pypi.org/project/fpagent/)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Record-level content fingerprinting for structured data.
@@ -29,8 +28,10 @@ Use it when you need to answer: "do these two datasets describe the same underly
 ## Install
 
 ```
-pip install fpagent
+pip install git+https://github.com/bradleykam/fpagent
 ```
+
+Or grab a built wheel from the [Releases page](https://github.com/bradleykam/fpagent/releases) and `pip install` it directly.
 
 Requires Python 3.10+.
 
