@@ -46,7 +46,8 @@ jobs:
             --output-file "dist/fpagent-${GITHUB_REF_NAME#v}.cdx.json"
 
       - name: Sign artifacts with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v3
+        # Pin to exact version; the 'v3' floating tag doesn't exist upstream.
+        uses: sigstore/gh-action-sigstore-python@v3.3.0
         with:
           inputs: |
             dist/*.whl
