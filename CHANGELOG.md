@@ -10,6 +10,8 @@ implementation.
 ## [Unreleased]
 
 ### Added (v0.2.0)
+- Structured logging. `--log-format {human,json}` and `--log-level {DEBUG,INFO,WARNING,ERROR}` at the CLI root. Logger tree rooted at `fpagent` with child loggers per module. JSON mode emits one record per line on stderr with `timestamp`, `level`, `logger`, `event`, and event-type-specific fields.
+- Privacy invariant: log records carry counts, field names, and short digest prefixes only — never fingerprint values or raw record content. Enforced by a scanning test that diffs all log output against the manifest's SHA-256/MinHash/TLSH and against raw content fields from the fixture.
 - Streaming fingerprinting. CLI does two passes: pass 1 reads all records for ID detection (per-spec requirement — heuristics depend on full-dataset cardinality), pass 2 streams through fingerprinting via the new `fpagent.parser.iter_records()` generator, allowing pass-1 records to be GC'd before pass 2 accumulates bundles. Produces byte-identical output to the pre-refactor single-pass flow.
 - `--max-records N` safety cap on `fingerprint`. Exits non-zero without writing a manifest if the input has more records.
 - Benchmark script at `tests/benchmarks/bench_fingerprint.py` measuring wall time and peak RSS at 10k/100k/1M synthetic records. Not part of the CI gate.
