@@ -10,6 +10,29 @@ implementation.
 ## [Unreleased]
 
 ### Changed
+- **MinHash vendored in `fpagent/_minhash.py` — spec-breaking change.** The
+  datasketch dependency is removed. The reference implementation is now the
+  authoritative definition of fpagent MinHash. Permutation coefficients are
+  derived deterministically from SHA-256 of labeled counters (no PRNG, no
+  platform-dependent seeding). Manifests produced by v0.2.x and earlier are
+  **not comparable at the MinHash level** to manifests from v0.3.0+. SHA-256
+  and TLSH fingerprints are unchanged. Spec bumped to **1.2.0**.
+- `manifest.fingerprint_params.minhash_seed` (integer) replaced with
+  `minhash_algorithm` (string, locked to `"fpagent-minhash-v1"`). Conformance
+  vector at `tests/fixtures/conformance/tickets.expected.json` regenerated.
+
+### Removed
+- `datasketch` and `numpy` runtime dependencies. Runtime deps now are
+  `cryptography`, `jsonschema`, `py-tlsh`. Wheel install pulls ~25 MB instead
+  of ~200 MB (mostly the numpy drop).
+
+### Benchmark (honest numbers)
+- Pure-Python MinHash on a 100k-record JSONL: ~192 seconds (~520 rec/s).
+  That's roughly 6–10× slower than the prior datasketch+numpy path. Within
+  the range the dependency-reduction spec accepted; documented in
+  `docs/operations.md`.
+
+### Changed (CLI)
 - CLI rewritten with `argparse` from the standard library. Every subcommand, flag, help text, and exit code is preserved. The `click` runtime dependency is removed.
 - `--help` now uses argparse's formatting; `--version` still prints `fpagent, version X.Y.Z`.
 

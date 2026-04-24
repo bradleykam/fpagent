@@ -43,13 +43,13 @@
       "type": "object",
       "required": [
         "minhash_permutations",
-        "minhash_seed",
+        "minhash_algorithm",
         "shingle_size",
         "canonicalization_version"
       ],
       "properties": {
         "minhash_permutations": {"type": "integer", "const": 128},
-        "minhash_seed": {"type": "integer", "const": 42},
+        "minhash_algorithm": {"type": "string", "const": "fpagent-minhash-v1"},
         "shingle_size": {"type": "integer", "const": 5},
         "canonicalization_version": {"type": "string"},
         "tlsh_version": {"type": "string"}

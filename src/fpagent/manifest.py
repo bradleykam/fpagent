@@ -16,7 +16,6 @@ from typing import Any, Dict, List
 from .fingerprint import (
     FingerprintBundle,
     MINHASH_PERMUTATIONS,
-    MINHASH_SEED,
     SHINGLE_SIZE,
     tlsh_version_string,
 )
@@ -44,7 +43,7 @@ def build_manifest(
         "field_decisions": [asdict(d) for d in field_decisions],
         "fingerprint_params": {
             "minhash_permutations": MINHASH_PERMUTATIONS,
-            "minhash_seed": MINHASH_SEED,
+            "minhash_algorithm": "fpagent-minhash-v1",
             "shingle_size": SHINGLE_SIZE,
             "tlsh_version": tlsh_version_string(),
             "canonicalization_version": CANONICALIZATION_VERSION,
